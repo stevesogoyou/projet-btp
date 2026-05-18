@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #222; margin: 40px; }
+  h1 { font-size: 22px; color: #1a3c6b; margin-bottom: 4px; }
+  .meta { color: #666; font-size: 12px; margin-bottom: 30px; }
+  .section-title { font-weight: bold; color: #1a3c6b; margin: 20px 0 6px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th { background: #1a3c6b; color: white; padding: 8px 10px; text-align: left; font-size: 12px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #e0e0e0; }
+  tr:nth-child(even) td { background: #f5f7fb; }
+  .totaux { margin-top: 20px; text-align: right; }
+  .totaux p { margin: 4px 0; }
+  .ttc { font-size: 16px; font-weight: bold; color: #1a3c6b; }
+  .footer { margin-top: 40px; font-size: 11px; color: #999; border-top: 1px solid #ddd; padding-top: 10px; }
+  .validite { background: #fff8e1; border-left: 3px solid #f9a825; padding: 8px 12px; margin-top: 20px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>DEVIS N° {{ devis_id }}</h1>
+<p class="meta">Émis le {{ date_emission }} &nbsp;|&nbsp; Valable {{ validite_jours }} jours</p>
+
+<div class="section-title">Client</div>
+<p>{{ client_name }}<br>{{ client_email }}</p>
+
+<div class="section-title">Description des travaux</div>
+<p>{{ description_travaux }}</p>
+
+<div class="section-title">Détail des prestations</div>
+<table>
+  <thead>
+    <tr>
+      <th>Prestation</th>
+      <th>Qté</th>
+      <th>Unité</th>
+      <th>Prix unitaire HT</th>
+      <th>Total HT</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for poste in postes %}
+    <tr>
+      <td>{{ poste.libelle }}</td>
+      <td>{{ poste.quantite }}</td>
+      <td>{{ poste.unite }}</td>
+      <td>{{ "%.2f"|format(poste.prix_unitaire) }} €</td>
+      <td>{{ "%.2f"|format(poste.quantite * poste.prix_unitaire) }} €</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="totaux">
+  <p>Total HT : <strong>{{ "%.2f"|format(amount_excluding_tax) }} €</strong></p>
+  <p>TVA {{ tva_taux }}% : <strong>{{ "%.2f"|format(montant_ttc - amount_excluding_tax) }} €</strong></p>
+  <p class="ttc">Total TTC : {{ "%.2f"|format(montant_ttc) }} €</p>
+</div>
+
+<div class="validite">
+  Ce devis est valable {{ validite_jours }} jours à compter de sa date d'émission.
+  Pour l'accepter, merci de nous retourner ce document signé avec la mention « Bon pour accord ».
+</div>
+
+<div class="footer">
+  Devis généré automatiquement — Conformément à la loi, tout commencement de travaux vaut acceptation du devis.
+</div>
+
+</body>
+</html>

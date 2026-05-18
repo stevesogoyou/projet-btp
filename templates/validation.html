@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Validation du devis</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 14px; background: #f5f7fb; color: #222; }
+  .container { max-width: 720px; margin: 0 auto; padding: 20px; }
+
+  h1 { font-size: 20px; color: #1a3c6b; margin-bottom: 4px; }
+  .subtitle { color: #666; font-size: 13px; margin-bottom: 24px; }
+
+  /* Bloc avertissements */
+  .warnings-box { background: #fff8e1; border-left: 4px solid #f9a825;
+    border-radius: 6px; padding: 14px 16px; margin-bottom: 24px; }
+  .warnings-box h2 { font-size: 14px; color: #b26e00; margin-bottom: 8px; }
+  .warnings-box ul { padding-left: 18px; }
+  .warnings-box li { color: #7a4f00; font-size: 13px; margin-bottom: 4px; }
+
+  /* Sections */
+  .section { background: white; border-radius: 8px; padding: 16px;
+    margin-bottom: 16px; border: 1px solid #e0e0e0; }
+  .section-title { font-size: 13px; font-weight: bold; color: #1a3c6b;
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+
+  /* Champs */
+  .field { margin-bottom: 12px; }
+  label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
+  input, textarea, select {
+    width: 100%; padding: 8px 10px; border: 1px solid #ddd;
+    border-radius: 6px; font-size: 14px; color: #222;
+    background: white; transition: border-color 0.2s;
+  }
+  input:focus, textarea:focus { outline: none; border-color: #1a3c6b; }
+  input.missing { border-color: #f9a825; background: #fffdf0; }
+
+  /* Tableau des postes */
+  .items-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .items-table th { background: #f0f4fb; color: #1a3c6b; font-size: 12px;
+    padding: 8px; text-align: left; border-bottom: 2px solid #dde3f0; }
+  .items-table td { padding: 6px 8px; border-bottom: 1px solid #eee; }
+  .items-table input { border: none; background: transparent; padding: 4px;
+    font-size: 14px; width: 100%; }
+  .items-table input:focus { background: #f0f4fb; border-radius: 4px; }
+  .total-row td { font-weight: bold; border-top: 2px solid #dde3f0;
+    padding-top: 10px; color: #1a3c6b; }
+
+  /* Bouton */
+  .btn-submit {
+    width: 100%; padding: 14px; background: #1a3c6b; color: white;
+    border: none; border-radius: 8px; font-size: 16px; font-weight: bold;
+    cursor: pointer; margin-top: 8px; transition: background 0.2s;
+  }
+  .btn-submit:hover { background: #122d52; }
+  .btn-submit:disabled { background: #aaa; cursor: not-allowed; }
+
+  .success-msg { display: none; background: #e8f5e9; border-left: 4px solid #43a047;
+    border-radius: 6px; padding: 14px; margin-top: 16px; color: #2e7d32; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Vérification du devis</h1>
+  <p class="subtitle">L'IA a pré-rempli le devis depuis ton message vocal. Vérifie et complète si nécessaire.</p>
+
+  <!-- Avertissements IA -->
+  {% if warnings %}
+  <div class="warnings-box">
+    <h2>⚠️ Points à vérifier</h2>
+    <ul>
+      {% for warning in warnings %}
+      <li>{{ warning }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form id="quote-form">
+    <input type="hidden" name="quote_id" value="{{ quote_id }}">
+    <input type="hidden" name="idempotency_key" value="{{ idempotency_key }}">
+
+    <!-- Infos client -->
+    <div class="section">
+      <div class="section-title">Informations client</div>
+      <div class="field">
+        <label>Nom du client</label>
+        <input type="text" name="client_name" value="{{ client_name }}"
+          class="{{ 'missing' if not client_name }}" placeholder="Nom Prénom">
+      </div>
+      <div class="field">
+        <label>Email du client</label>
+        <input type="email" name="client_email" value="{{ client_email }}"
+          class="{{ 'missing' if not client_email }}" placeholder="email@exemple.fr">
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div class="section">
+      <div class="section-title">Description des travaux</div>
+      <div class="field">
+        <textarea name="work_description" rows="3">{{ work_description }}</textarea>
+      </div>
+    </div>
+
+    <!-- Postes -->
+    <div class="section">
+      <div class="section-title">Détail des prestations</div>
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Prestation</th>
+            <th>Qté</th>
+            <th>Unité</th>
+            <th>Prix unit. HT</th>
+            <th>Total HT</th>
+          </tr>
+        </thead>
+        <tbody id="items-body">
+          {% for item in items %}
+          <tr>
+            <td><input type="text" name="label[]" value="{{ item.label }}"></td>
+            <td><input type="number" name="quantity[]" value="{{ item.quantity }}"
+              step="0.01" onchange="updateTotals()"></td>
+            <td><input type="text" name="unit[]" value="{{ item.unit }}"></td>
+            <td><input type="number" name="unit_price[]" value="{{ item.unit_price }}"
+              step="0.01" onchange="updateTotals()"></td>
+            <td id="total-{{ loop.index0 }}">{{ "%.2f"|format(item.quantity * item.unit_price) }} €</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="4">Total HT</td>
+            <td id="total-ht">{{ "%.2f"|format(amount_excluding_tax) }} €</td>
+          </tr>
+          <tr class="total-row">
+            <td colspan="4">TVA {{ vat_rate }}%</td>
+            <td id="total-vat">{{ "%.2f"|format(amount_including_tax - amount_excluding_tax) }} €</td>
+          </tr>
+          <tr class="total-row">
+            <td colspan="4">Total TTC</td>
+            <td id="total-ttc">{{ "%.2f"|format(amount_including_tax) }} €</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <button type="submit" class="btn-submit" id="submit-btn">
+      ✉️ Valider et envoyer le devis au client
+    </button>
+  </form>
+
+  <div class="success-msg" id="success-msg">
+    ✅ Devis envoyé avec succès au client !
+  </div>
+
+</div>
+
+<script>
+  // Recalcule les totaux en temps réel quand l'artisan modifie les prix
+  function updateTotals() {
+    const quantities = document.querySelectorAll('input[name="quantity[]"]');
+    const prices = document.querySelectorAll('input[name="unit_price[]"]');
+    const vatRate = {{ vat_rate }} / 100;
+    let totalHT = 0;
+
+    quantities.forEach((qtyInput, i) => {
+      const lineTotal = parseFloat(qtyInput.value || 0) * parseFloat(prices[i].value || 0);
+      const cell = document.getElementById('total-' + i);
+      if (cell) cell.textContent = lineTotal.toFixed(2) + ' €';
+      totalHT += lineTotal;
+    });
+
+    const vat = totalHT * vatRate;
+    document.getElementById('total-ht').textContent = totalHT.toFixed(2) + ' €';
+    document.getElementById('total-vat').textContent = vat.toFixed(2) + ' €';
+    document.getElementById('total-ttc').textContent = (totalHT + vat).toFixed(2) + ' €';
+  }
+
+  // Soumission du formulaire vers l'API de confirmation
+  document.getElementById('quote-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Envoi en cours...';
+
+    const form = e.target;
+    const data = {
+      quote_id: form.quote_id.value,
+      idempotency_key: form.idempotency_key.value,
+      client_name: form.client_name.value,
+      client_email: form.client_email.value,
+      work_description: form.work_description.value,
+    };
+
+    const response = await fetch('/quotes/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (response.ok) {
+      document.getElementById('success-msg').style.display = 'block';
+      btn.style.display = 'none';
+    } else {
+      btn.disabled = false;
+      btn.textContent = '✉️ Valider et envoyer le devis au client';
+      alert('Une erreur est survenue, réessaie.');
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+# ==============================
+# Secrets & configuration locale
+# ==============================
+# Le vrai .env avec tes clés API — ne JAMAIS commiter
+.env
+
+# ==============================
+# Python
+# ==============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environnement virtuel
+venv/
+.venv/
+env/
+.env/
+
+# ==============================
+# Base de données locale
+# ==============================
+# SQLite généré automatiquement au démarrage
+*.db
+*.sqlite
+*.sqlite3
+
+# ==============================
+# Fichiers générés par l'app
+# ==============================
+# Les PDFs générés sont des données clients, pas du code
+pdfs/
+
+# Fichiers audio temporaires qui auraient pu traîner
+*.mp3
+*.m4a
+*.ogg
+*.wav
+
+# ==============================
+# IDE & éditeurs
+# ==============================
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# ==============================
+# Tests & coverage
+# ==============================
+.pytest_cache/
+.coverage
+htmlcov/
