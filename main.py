@@ -8,16 +8,17 @@ import os
 import shutil
 import tempfile
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+
 from core.database import init_db, get_session, Quote
 from core.schemas import QuoteResponse
 from transcription import transcribe_audio
 from extraction import extract_quote_info, calculate_amounts
-from pdf_generator import generate_pdf
+from pdf_generator import generate_pdf, _jinja_env
 from email_sender import send_quote_to_client
 
 
@@ -36,7 +37,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-templates = Jinja2Templates(directory="templates")
+# On réutilise l'environnement Jinja2 déjà initialisé dans pdf_generator (DRY)
 
 
 # --- Route principale : traitement du vocal ---
@@ -140,19 +141,21 @@ async def validation_page(
     if not quote:
         raise HTTPException(status_code=404, detail="Devis introuvable")
 
-    return templates.TemplateResponse("validation.html", {
-        "request": request,
-        "quote_id": quote.id,
-        "idempotency_key": quote.idempotency_key,
-        "client_name": quote.client_name,
-        "client_email": quote.client_email,
-        "work_description": quote.work_description,
-        "items": [],  # À compléter quand on stockera les postes en base
-        "amount_excluding_tax": quote.amount_excluding_tax,
-        "amount_including_tax": quote.amount_including_tax,
-        "vat_rate": quote.vat_rate,
-        "warnings": quote.warnings or [],
-    })
+    # Rendu direct avec notre environnement Jinja2 (évite le conflit avec Starlette)
+    template = _jinja_env.get_template("validation.html")
+    html = template.render(
+        quote_id=quote.id,
+        idempotency_key=quote.idempotency_key,
+        client_name=quote.client_name,
+        client_email=quote.client_email,
+        work_description=quote.work_description,
+        items=[],
+        amount_excluding_tax=quote.amount_excluding_tax,
+        amount_including_tax=quote.amount_including_tax,
+        vat_rate=quote.vat_rate,
+        warnings=quote.warnings or [],
+    )
+    return HTMLResponse(content=html)
 
 
 # --- Route de confirmation : l'artisan valide et envoie au client ---
